@@ -1,14 +1,15 @@
- from flask import Flask, request, jsonify
-import cv2
-import numpy as np
-from PIL import Image
+ import base64
+import json
 import io
+import numpy as np
+import cv2
+from PIL import Image
 from skimage.color import rgb2lab
 import mediapipe as mp
 from datetime import datetime
+import sys
 
-app = Flask(__name__)
-
+# === Generazione maschera facciale da landmark MediaPipe ===
 def genera_maschera_frontale(image_rgb):
     h, w = image_rgb.shape[:2]
     mp_face_mesh = mp.solutions.face_mesh
@@ -24,45 +25,54 @@ def genera_maschera_frontale(image_rgb):
         points = np.array([[int(l.x * w), int(l.y * h)] for i, l in enumerate(landmarks) if i in punti_viso])
         if len(points) > 0:
             cv2.fillPoly(mask, [points], 255)
+
     return mask > 0
 
-@app.route("/process", methods=["POST"])
-def process_image():
-    if 'file' not in request.files or 'dob' not in request.form:
-        return jsonify({"error": "Serve immagine e data di nascita (dob)"}), 400
+# === Stima fototipo da L* ===
+def stima_fototipo(L_val):
+    if L_val > 80: return "Tipo I (molto chiara)"
+    elif L_val > 70: return "Tipo II (chiara)"
+    elif L_val > 60: return "Tipo III (medio-chiara)"
+    elif L_val > 50: return "Tipo IV (olivastra)"
+    elif L_val > 40: return "Tipo V (marrone)"
+    else: return "Tipo VI (molto scura)"
 
-    file = request.files['file']
-    dob_str = request.form['dob']
+# === RunPod handler ===
+def handler(event):
     try:
+        # Estrai input
+        img_b64 = event["input"]["image_base64"]
+        dob_str = event["input"]["data_nascita"]
+
+        # Calcolo età
         dob = datetime.strptime(dob_str, "%Y-%m-%d")
         today = datetime.today()
         eta = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+
+        # Decodifica immagine
+        image_bytes = base64.b64decode(img_b64)
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        image_np = np.array(image)
+        image_rgb = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
+
+        # Maschera facciale
+        mask = genera_maschera_frontale(image_rgb)
+
+        # Calcolo LAB e media L* solo sulla maschera
+        lab = rgb2lab(image_np)
+        L = lab[:, :, 0]
+        L_mean = np.mean(L[mask])
+        fototipo = stima_fototipo(L_mean)
+
+        # Output finale
+        result = {
+            "età": eta,
+            "fototipo": fototipo,
+            "L* medio": round(L_mean, 1)
+        }
+
+        print(json.dumps({"output": result}))
+
     except Exception as e:
-        return jsonify({"error": f"Data non valida: {str(e)}"}), 400
-
-    image = Image.open(io.BytesIO(file.read())).convert("RGB")
-    image_np = np.array(image)
-    image_rgb = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
-
-    mask = genera_maschera_frontale(image_rgb)
-    lab = rgb2lab(image_np)
-    L, A, B = lab[:,:,0], lab[:,:,1], lab[:,:,2]
-    L_mean = np.mean(L[mask])
-
-    def stima_fototipo(L_val):
-        if L_val > 80: return "Tipo I (molto chiara)"
-        elif L_val > 70: return "Tipo II (chiara)"
-        elif L_val > 60: return "Tipo III (medio-chiara)"
-        elif L_val > 50: return "Tipo IV (olivastra)"
-        elif L_val > 40: return "Tipo V (marrone)"
-        else: return "Tipo VI (molto scura)"
-    fototipo = stima_fototipo(L_mean)
-
-    return jsonify({
-        "età": eta,
-        "fototipo": fototipo,
-        "L* medio": round(L_mean, 1)
-    })
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000)
+        print(json.dumps({"error": str(e)}), file=sys.stderr)
+        raise e
