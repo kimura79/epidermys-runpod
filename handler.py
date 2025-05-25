@@ -1,8 +1,4 @@
-import base64
-import json
-import io
-import numpy as np
-import cv2
+import base64, json, io, numpy as np, cv2
 from PIL import Image
 from skimage.color import rgb2lab
 import mediapipe as mp
@@ -10,19 +6,17 @@ from datetime import datetime
 
 def genera_maschera_frontale(image_rgb):
     h, w = image_rgb.shape[:2]
-    mp_face_mesh = mp.solutions.face_mesh
-    face_mesh = mp_face_mesh.FaceMesh(static_image_mode=True, max_num_faces=1, refine_landmarks=True)
-    results = face_mesh.process(image_rgb)
     mask = np.zeros((h, w), dtype=np.uint8)
-
-    if results.multi_face_landmarks:
-        landmarks = results.multi_face_landmarks[0].landmark
-        punti_viso = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397,
-                      365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172,
-                      58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109]
-        points = np.array([[int(l.x * w), int(l.y * h)] for i, l in enumerate(landmarks) if i in punti_viso])
-        if len(points) > 0:
-            cv2.fillPoly(mask, [points], 255)
+    with mp.solutions.face_mesh.FaceMesh(static_image_mode=True, max_num_faces=1, refine_landmarks=True) as face_mesh:
+        results = face_mesh.process(image_rgb)
+        if results.multi_face_landmarks:
+            landmarks = results.multi_face_landmarks[0].landmark
+            punti_viso = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397,
+                          365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172,
+                          58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109]
+            points = np.array([[int(l.x * w), int(l.y * h)] for i, l in enumerate(landmarks) if i in punti_viso])
+            if len(points) > 0:
+                cv2.fillPoly(mask, [points], 255)
     return mask > 0
 
 def stima_fototipo(L_val):
@@ -49,17 +43,16 @@ def handler(event):
 
         mask = genera_maschera_frontale(image_rgb)
         lab = rgb2lab(image_np)
-        L = lab[:, :, 0]
-        L_mean = np.mean(L[mask])
+        L_mean = np.mean(lab[:, :, 0][mask])
         fototipo = stima_fototipo(L_mean)
 
-        result = {
-            "età": eta,
-            "fototipo": fototipo,
-            "L* medio": round(L_mean, 1)
+        return {
+            "output": {
+                "età": eta,
+                "fototipo": fototipo,
+                "L* medio": round(L_mean, 1)
+            }
         }
-
-        return { "output": result }
 
     except Exception as e:
         return { "error": str(e) }
