@@ -1,4 +1,4 @@
- import base64
+import base64
 import json
 import io
 import numpy as np
@@ -9,7 +9,6 @@ import mediapipe as mp
 from datetime import datetime
 import sys
 
-# === Generazione maschera facciale da landmark MediaPipe ===
 def genera_maschera_frontale(image_rgb):
     h, w = image_rgb.shape[:2]
     mp_face_mesh = mp.solutions.face_mesh
@@ -25,10 +24,8 @@ def genera_maschera_frontale(image_rgb):
         points = np.array([[int(l.x * w), int(l.y * h)] for i, l in enumerate(landmarks) if i in punti_viso])
         if len(points) > 0:
             cv2.fillPoly(mask, [points], 255)
-
     return mask > 0
 
-# === Stima fototipo da L* ===
 def stima_fototipo(L_val):
     if L_val > 80: return "Tipo I (molto chiara)"
     elif L_val > 70: return "Tipo II (chiara)"
@@ -37,42 +34,34 @@ def stima_fototipo(L_val):
     elif L_val > 40: return "Tipo V (marrone)"
     else: return "Tipo VI (molto scura)"
 
-# === RunPod handler ===
 def handler(event):
     try:
-        # Estrai input
         img_b64 = event["input"]["image_base64"]
         dob_str = event["input"]["data_nascita"]
 
-        # Calcolo età
         dob = datetime.strptime(dob_str, "%Y-%m-%d")
         today = datetime.today()
         eta = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
 
-        # Decodifica immagine
         image_bytes = base64.b64decode(img_b64)
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         image_np = np.array(image)
         image_rgb = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
 
-        # Maschera facciale
         mask = genera_maschera_frontale(image_rgb)
-
-        # Calcolo LAB e media L* solo sulla maschera
         lab = rgb2lab(image_np)
         L = lab[:, :, 0]
         L_mean = np.mean(L[mask])
         fototipo = stima_fototipo(L_mean)
 
-        # Output finale
         result = {
             "età": eta,
             "fototipo": fototipo,
             "L* medio": round(L_mean, 1)
         }
 
-        print(json.dumps({"output": result}))
+        return {"output": result}
 
     except Exception as e:
         print(json.dumps({"error": str(e)}), file=sys.stderr)
-        raise e
+        return {"error": str(e)}
