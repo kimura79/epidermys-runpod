@@ -1,8 +1,13 @@
-import base64, json, io, numpy as np, cv2
+import base64
+import json
+import io
+import numpy as np
+import cv2
 from PIL import Image
 from skimage.color import rgb2lab
 import mediapipe as mp
 from datetime import datetime
+import sys
 
 def genera_maschera_frontale(image_rgb):
     h, w = image_rgb.shape[:2]
@@ -56,3 +61,12 @@ def handler(event):
 
     except Exception as e:
         return { "error": str(e) }
+
+if __name__ == "__main__":
+    try:
+        print("Awaiting input JSON from stdin...")
+        event = json.load(sys.stdin)
+        output = handler(event)
+        print(json.dumps(output))
+    except Exception as e:
+        print(json.dumps({ "error": str(e) }))
