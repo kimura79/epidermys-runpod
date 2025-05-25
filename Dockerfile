@@ -6,3 +6,5 @@ COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY handler.py handler.py
+
+CMD ["handler.handler"]
