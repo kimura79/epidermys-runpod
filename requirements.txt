@@ -3,3 +3,5 @@ mediapipe==0.10.9
 numpy
 Pillow
 scikit-image
+flask
+matplotlib
