@@ -1,5 +1,9 @@
 FROM python:3.10-slim
-WORKDIR /app
-COPY . .
+
+WORKDIR /workspace
+COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
-CMD ["python3"]
+
+COPY app.py app.py
+
+CMD ["python", "app.py"]
