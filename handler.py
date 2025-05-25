@@ -1,5 +1,3 @@
-# handler.py (non app.py)
-
 import base64
 import json
 import io
