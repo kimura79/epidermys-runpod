@@ -1,3 +1,5 @@
+# handler.py (non app.py)
+
 import base64
 import json
 import io
@@ -7,7 +9,6 @@ from PIL import Image
 from skimage.color import rgb2lab
 import mediapipe as mp
 from datetime import datetime
-import sys
 
 def genera_maschera_frontale(image_rgb):
     h, w = image_rgb.shape[:2]
@@ -60,8 +61,7 @@ def handler(event):
             "L* medio": round(L_mean, 1)
         }
 
-        return {"output": result}
+        return { "output": result }
 
     except Exception as e:
-        print(json.dumps({"error": str(e)}), file=sys.stderr)
-        return {"error": str(e)}
+        return { "error": str(e) }
