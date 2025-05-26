@@ -2,9 +2,9 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY handler.py .
+COPY app.py app.py
 
-CMD ["python", "handler.py"]
+CMD ["app.handler"]
