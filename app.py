@@ -64,7 +64,6 @@ def handler(event):
 
 if __name__ == "__main__":
     try:
-        print("Awaiting input JSON from stdin...")
         event = json.load(sys.stdin)
         output = handler(event)
         print(json.dumps(output))
