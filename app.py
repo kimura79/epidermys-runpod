@@ -6,8 +6,7 @@ import mediapipe as mp
 from datetime import datetime
 
 def log(msg):
-    with open("debug_log.txt", "a") as f:
-        f.write(str(msg) + "\n")
+    print("[LOG]", msg)
 
 def genera_maschera_frontale(image_rgb):
     h, w = image_rgb.shape[:2]
@@ -50,6 +49,8 @@ def handler(event):
         log("Immagine caricata e convertita.")
 
         mask = genera_maschera_frontale(image_rgb)
+        log("Maschera generata.")
+
         lab = rgb2lab(image_np)
         L_mean = np.mean(lab[:, :, 0][mask])
         fototipo = stima_fototipo(L_mean)
