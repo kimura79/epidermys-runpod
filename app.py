@@ -1,13 +1,13 @@
-import base64
-import json
-import io
-import numpy as np
-import cv2
+import base64, json, io, sys
+import numpy as np, cv2
 from PIL import Image
 from skimage.color import rgb2lab
 import mediapipe as mp
 from datetime import datetime
-import sys
+
+def log(msg):
+    with open("debug_log.txt", "a") as f:
+        f.write(str(msg) + "\n")
 
 def genera_maschera_frontale(image_rgb):
     h, w = image_rgb.shape[:2]
@@ -34,22 +34,26 @@ def stima_fototipo(L_val):
 
 def handler(event):
     try:
+        log("Evento ricevuto.")
         img_b64 = event["input"]["image_base64"]
         dob_str = event["input"]["data_nascita"]
 
         dob = datetime.strptime(dob_str, "%Y-%m-%d")
         today = datetime.today()
         eta = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+        log(f"Età calcolata: {eta}")
 
         image_bytes = base64.b64decode(img_b64)
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         image_np = np.array(image)
         image_rgb = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
+        log("Immagine caricata e convertita.")
 
         mask = genera_maschera_frontale(image_rgb)
         lab = rgb2lab(image_np)
         L_mean = np.mean(lab[:, :, 0][mask])
         fototipo = stima_fototipo(L_mean)
+        log(f"Fototipo stimato: {fototipo}")
 
         return {
             "output": {
@@ -60,12 +64,15 @@ def handler(event):
         }
 
     except Exception as e:
+        log("Errore: " + str(e))
         return { "error": str(e) }
 
 if __name__ == "__main__":
     try:
+        log("Avvio da terminale.")
         event = json.load(sys.stdin)
         output = handler(event)
         print(json.dumps(output))
     except Exception as e:
+        log("Errore terminale: " + str(e))
         print(json.dumps({ "error": str(e) }))
